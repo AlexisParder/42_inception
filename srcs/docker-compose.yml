@@ -1,0 +1,160 @@
+secrets:
+  db_password:
+    file: ../secrets/db_password.txt
+  db_root_password:
+    file: ../secrets/db_root_password.txt
+  wp_admin_password:
+    file: ../secrets/wp_admin_password.txt
+  wp_user_password:
+    file: ../secrets/wp_user_password.txt
+  ftp_password:
+    file: ../secrets/ftp_password.txt
+
+volumes:
+  mariadb:
+    name: mariadb
+    driver: local
+    driver_opts:
+      device: /home/${LOGIN}/data/mariadb
+      o: bind
+      type: none
+  wordpress:
+    name: wordpress
+    driver: local
+    driver_opts:
+      device: /home/${LOGIN}/data/wordpress
+      o: bind
+      type: none
+  backup_mariadb:
+    name: backup_mariadb
+    driver: local
+    driver_opts:
+      device: /home/${LOGIN}/data/backup_mariadb
+      o: bind
+      type: none
+
+networks:
+  inception:
+    name: inception
+    driver: bridge
+
+services:
+  nginx:
+    container_name: nginx
+    build: ./requirements/nginx
+    networks:
+      - inception
+    volumes:
+      - wordpress:/var/www/html
+    env_file:
+      - .env
+    depends_on:
+      - wordpress
+    ports:
+      - "443:443"
+    restart: on-failure
+  wordpress:
+    container_name: wordpress
+    build: ./requirements/wordpress
+    networks:
+      - inception
+    volumes:
+      - wordpress:/var/www/html
+    depends_on:
+      - mariadb
+      - redis
+    env_file:
+      - .env
+    expose:
+      - "9000"
+    secrets:
+      - wp_admin_password
+      - wp_user_password
+      - db_password
+    restart: on-failure
+  mariadb:
+    container_name: mariadb
+    build: ./requirements/mariadb
+    networks:
+      - inception
+    volumes:
+      - mariadb:/var/lib/mysql
+    env_file:
+      - .env
+    expose:
+      - "3306"
+    secrets:
+      - db_password
+      - db_root_password
+    restart: on-failure
+  redis:
+    container_name: redis
+    build: ./requirements/bonus/redis
+    networks:
+      - inception
+    expose:
+      - "6379"
+    restart: on-failure
+  ftp:
+    container_name: ftp
+    build: ./requirements/bonus/ftp
+    networks:
+      - inception
+    volumes:
+      - wordpress:/var/www/html
+    env_file:
+      - .env
+    secrets:
+      - ftp_password
+    depends_on:
+      - wordpress
+    ports:
+      - "21:21"
+      - "21100-21110:21100-21110"
+    environment:
+      - HOST_IP=${HOST_IP}
+    restart: on-failure
+  static_website:
+    container_name: static_website
+    build: ./requirements/bonus/static_website
+    networks:
+      - inception
+    env_file:
+      - .env
+    ports:
+      - "8443:8443"
+    restart: on-failure
+  adminer:
+    container_name: adminer
+    build: ./requirements/bonus/adminer
+    networks:
+      - inception
+    expose:
+      - "9000"
+    restart: on-failure
+  adminer_nginx:
+    container_name: adminer_nginx
+    build: ./requirements/bonus/adminer_nginx
+    networks:
+      - inception
+    env_file:
+      - .env
+    depends_on:
+      - adminer
+    ports:
+      - "8444:8444"
+    restart: on-failure
+  backup_mariadb:
+    container_name: backup_mariadb
+    build: ./requirements/bonus/backup_mariadb
+    volumes:
+    - backup_mariadb:/backups
+    networks:
+      - inception
+    env_file:
+      - .env
+    depends_on:
+      - mariadb
+    secrets:
+    - db_password
+    restart: on-failure

@@ -1,0 +1,12 @@
+server {
+    listen      8443 ssl;
+    server_name static.$DOMAIN_NAME www.static.$DOMAIN_NAME;
+    root    /var/www/html/;
+    index index.html;
+
+    ssl_certificate     /etc/nginx/ssl/certificate_static.crt;
+    ssl_certificate_key /etc/nginx/ssl/certificate_static.key;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_session_timeout 10m;
+    keepalive_timeout 70;
+}
